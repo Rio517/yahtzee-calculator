@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <title>Yahtzee Calculator</title>
+  <title>Yahtzee Logger</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -14,11 +14,10 @@
       --text: #f1f5f9;
       --muted: #94a3b8;
       --accent: #22d3ee;
-      --accent-dim: rgba(34, 211, 238, 0.15);
+      --accent-dim: rgba(34, 211, 238, 0.18);
       --good: #4ade80;
       --warn: #fbbf24;
       --bad: #f87171;
-      --locked: #64748b;
       --tap: rgba(255, 255, 255, 0.06);
     }
 
@@ -55,57 +54,51 @@
     .total {
       font-variant-numeric: tabular-nums;
       font-weight: 700;
-      font-size: 18px;
+      font-size: 22px;
       color: var(--accent);
     }
 
-    /* Dice row */
-    .dice {
+    .summary {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
-    .die {
-      aspect-ratio: 1 / 1;
+    .stat {
       background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      gap: 4px;
-      padding: 18%;
-      cursor: pointer;
-      user-select: none;
-      transition: transform 80ms ease, border-color 120ms ease, background 120ms ease;
-      touch-action: manipulation;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
     }
-    .die:active { transform: scale(0.94); }
-    .die.held {
-      border-color: var(--accent);
-      background: var(--accent-dim);
+    .stat .stat-label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
     }
-    .pip {
-      background: var(--text);
-      border-radius: 50%;
-      width: 100%;
-      height: 100%;
-      visibility: hidden;
+    .stat .stat-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: 18px;
     }
-    .pip.on { visibility: visible; }
+    .stat.bonus-pending .stat-value { color: var(--warn); font-size: 13px; }
+    .stat.bonus-earned .stat-value { color: var(--good); }
 
     .controls {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 8px;
       margin-bottom: 18px;
     }
     .btn {
-      padding: 14px 12px;
+      padding: 12px;
       border-radius: 10px;
-      border: none;
-      font-size: 15px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
       font-weight: 600;
       letter-spacing: 0.02em;
       cursor: pointer;
@@ -113,27 +106,6 @@
       transition: opacity 120ms;
     }
     .btn:active { opacity: 0.7; }
-    .btn-roll {
-      background: var(--accent);
-      color: var(--bg);
-    }
-    .btn-roll:disabled {
-      background: var(--surface-2);
-      color: var(--muted);
-      cursor: not-allowed;
-    }
-    .btn-reset {
-      background: var(--surface);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .roll-info {
-      grid-column: 1 / -1;
-      text-align: center;
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: -4px;
-    }
 
     /* Scorecard */
     .section {
@@ -165,13 +137,6 @@
     }
     .row:last-child { border-bottom: none; }
     .row.lockable:active { background: var(--tap); }
-    .row.locked {
-      cursor: default;
-      opacity: 0.85;
-    }
-    .row.suggested {
-      background: rgba(74, 222, 128, 0.08);
-    }
     .row.subtotal {
       cursor: default;
       background: var(--surface-2);
@@ -189,37 +154,107 @@
     .score {
       font-variant-numeric: tabular-nums;
       font-weight: 700;
-      font-size: 16px;
-      min-width: 56px;
+      font-size: 18px;
+      min-width: 44px;
       text-align: right;
-      padding: 4px 8px;
+      padding: 6px 10px;
       border-radius: 6px;
+      color: var(--text);
     }
-    .score.preview {
-      color: var(--good);
-      background: rgba(74, 222, 128, 0.12);
-    }
-    .score.zero-preview {
-      color: var(--bad);
-      background: rgba(248, 113, 113, 0.10);
-    }
-    .score.locked {
-      color: var(--locked);
-      background: transparent;
-      cursor: pointer;
-    }
-    .score.locked:active { background: var(--tap); }
     .score.empty {
       color: var(--muted);
       font-weight: 400;
       font-style: italic;
     }
-    .score.bonus-progress {
-      color: var(--warn);
-      font-size: 13px;
+    .score.locked {
+      color: var(--accent);
+      background: var(--accent-dim);
     }
-    .score.bonus-earned {
-      color: var(--good);
+
+    /* Picker overlay */
+    .picker-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      padding: 0;
+    }
+    .picker-backdrop.open { display: flex; }
+    .picker {
+      background: var(--surface);
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      width: 100%;
+      max-width: 480px;
+      padding: 16px 16px max(20px, env(safe-area-inset-bottom));
+      animation: slide-up 200ms ease;
+    }
+    @keyframes slide-up {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .picker-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .picker-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .picker-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+    .picker-desc {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .picker-options {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .picker-options.toggle { grid-template-columns: repeat(2, 1fr); }
+    .picker-option {
+      padding: 14px 8px;
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid transparent;
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: 17px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 100ms, border-color 100ms;
+    }
+    .picker-option:active { background: var(--border); }
+    .picker-option.zero { color: var(--bad); }
+    .picker-option.score { color: var(--good); }
+    .picker-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .picker-actions .btn-clear {
+      background: transparent;
+      border: 1px solid var(--bad);
+      color: var(--bad);
+    }
+    .picker-actions .btn-cancel {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
     }
 
     .footer {
@@ -229,32 +264,32 @@
       padding-top: 8px;
     }
     .footer a { color: var(--muted); }
-
-    /* Tap to clear hint */
-    .clear-hint {
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      text-align: center;
-      margin-top: 6px;
-      opacity: 0.7;
-    }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>Yahtzee</h1>
+      <h1>Yahtzee Logger</h1>
       <div class="total" data-testid="grand-total">0</div>
     </header>
 
-    <div class="dice" id="dice" aria-label="Five dice. Tap a die to hold it between rolls."></div>
+    <div class="summary">
+      <div class="stat">
+        <span class="stat-label">Upper</span>
+        <span class="stat-value" data-testid="upper-subtotal">0</span>
+      </div>
+      <div class="stat" id="bonus-stat">
+        <span class="stat-label">Bonus</span>
+        <span class="stat-value" data-testid="upper-bonus">+63</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Lower</span>
+        <span class="stat-value" data-testid="lower-subtotal">0</span>
+      </div>
+    </div>
 
     <div class="controls">
-      <button class="btn btn-roll" id="roll" data-testid="btn-roll">Roll (3)</button>
-      <button class="btn btn-reset" id="new-game" data-testid="btn-new-game">New Game</button>
-      <div class="roll-info" id="roll-info">Tap a die to hold it. Tap a row to lock the score.</div>
+      <button class="btn" id="new-game" data-testid="btn-new-game">New Game</button>
     </div>
 
     <div class="section">
@@ -267,21 +302,31 @@
       <div class="scorecard" id="lower"></div>
     </div>
 
-    <p class="clear-hint">Long-press a locked score to clear it.</p>
     <div class="footer">
-      Yahtzee scoring · works offline · <a href="https://github.com/Rio517/yahtzee-calculator">source</a>
+      Yahtzee logger · works offline · <a href="https://github.com/Rio517/yahtzee-calculator">source</a>
+    </div>
+  </div>
+
+  <!-- Picker overlay -->
+  <div class="picker-backdrop" id="picker-backdrop" data-testid="picker">
+    <div class="picker" role="dialog" aria-labelledby="picker-title">
+      <div class="picker-head">
+        <span class="picker-title" id="picker-title"></span>
+        <button class="picker-close" id="picker-close" aria-label="Close picker">×</button>
+      </div>
+      <p class="picker-desc" id="picker-desc"></p>
+      <div class="picker-options" id="picker-options"></div>
+      <div class="picker-actions">
+        <button class="btn btn-clear" id="picker-clear" data-testid="picker-clear">Clear</button>
+        <button class="btn btn-cancel" id="picker-cancel">Cancel</button>
+      </div>
     </div>
   </div>
 
   <script>
-    // ── Game state ─────────────────────────────────────────────────────
-    const STORAGE_KEY = "yahtzee-calc-v1";
+    const STORAGE_KEY = "yahtzee-logger-v1";
 
     const initialState = () => ({
-      dice: [1, 1, 1, 1, 1],
-      held: [false, false, false, false, false],
-      rollsLeft: 3,
-      // Scorecard: null = empty, number = locked score
       scores: {
         ones: null, twos: null, threes: null, fours: null, fives: null, sixes: null,
         threeKind: null, fourKind: null, fullHouse: null,
@@ -302,181 +347,73 @@
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
     }
 
-    // ── Score calculations ─────────────────────────────────────────────
-    const upperKey = (n) => ["ones","twos","threes","fours","fives","sixes"][n - 1];
-    const isYahtzee = (dice) => new Set(dice).size === 1;
+    // ── Score config ───────────────────────────────────────────────────
+    // Each category declares its valid score options. The picker renders
+    // exactly these — no free-form input, no risk of typos.
+    const ROWS = {
+      upper: [
+        { key: "ones",   label: "Ones",   desc: "Sum of 1s",
+          options: [0, 1, 2, 3, 4, 5] },
+        { key: "twos",   label: "Twos",   desc: "Sum of 2s",
+          options: [0, 2, 4, 6, 8, 10] },
+        { key: "threes", label: "Threes", desc: "Sum of 3s",
+          options: [0, 3, 6, 9, 12, 15] },
+        { key: "fours",  label: "Fours",  desc: "Sum of 4s",
+          options: [0, 4, 8, 12, 16, 20] },
+        { key: "fives",  label: "Fives",  desc: "Sum of 5s",
+          options: [0, 5, 10, 15, 20, 25] },
+        { key: "sixes",  label: "Sixes",  desc: "Sum of 6s",
+          options: [0, 6, 12, 18, 24, 30] },
+      ],
+      lower: [
+        { key: "threeKind", label: "3 of a Kind", desc: "Sum of all dice",
+          // Sum of 5 dice ≥ three of one value: min 5, max 30. Plus 0 if not qualifying.
+          options: [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30] },
+        { key: "fourKind", label: "4 of a Kind", desc: "Sum of all dice",
+          options: [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30] },
+        { key: "fullHouse", label: "Full House", desc: "25 points",
+          options: [0, 25], toggle: true },
+        { key: "smallStraight", label: "Small Straight", desc: "4 in a row · 30 pts",
+          options: [0, 30], toggle: true },
+        { key: "largeStraight", label: "Large Straight", desc: "5 in a row · 40 pts",
+          options: [0, 40], toggle: true },
+        { key: "yahtzee", label: "Yahtzee", desc: "5 of a kind · 50 pts",
+          options: [0, 50], toggle: true },
+        { key: "chance", label: "Chance", desc: "Sum of all dice",
+          options: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30] },
+      ],
+    };
 
-    function counts(dice) {
-      const c = {};
-      for (const d of dice) c[d] = (c[d] || 0) + 1;
-      return c;
-    }
-    function sum(dice) { return dice.reduce((a, b) => a + b, 0); }
-
-    function scoreUpper(dice, n) {
-      return dice.filter(d => d === n).length * n;
-    }
-    function scoreNKind(dice, n) {
-      const c = counts(dice);
-      return Object.values(c).some(v => v >= n) ? sum(dice) : 0;
-    }
-    function scoreFullHouse(dice) {
-      const vals = Object.values(counts(dice)).sort();
-      // Joker rule: a Yahtzee also counts as a full house when upper section is filled.
-      if (vals.length === 1) return 25;
-      return (vals.length === 2 && vals[0] === 2 && vals[1] === 3) ? 25 : 0;
-    }
-    function scoreStraight(dice, len) {
-      const uniq = [...new Set(dice)].sort((a, b) => a - b);
-      let run = 1, best = 1;
-      for (let i = 1; i < uniq.length; i++) {
-        run = (uniq[i] === uniq[i - 1] + 1) ? run + 1 : 1;
-        best = Math.max(best, run);
+    function rowConfig(key) {
+      for (const section of Object.values(ROWS)) {
+        const r = section.find(x => x.key === key);
+        if (r) return r;
       }
-      if (len === 4) return best >= 4 ? 30 : 0;
-      if (len === 5) return best >= 5 ? 40 : 0;
-      return 0;
-    }
-    function scoreYahtzee(dice) { return isYahtzee(dice) ? 50 : 0; }
-    function scoreChance(dice) { return sum(dice); }
-
-    function previewFor(key, dice) {
-      switch (key) {
-        case "ones": return scoreUpper(dice, 1);
-        case "twos": return scoreUpper(dice, 2);
-        case "threes": return scoreUpper(dice, 3);
-        case "fours": return scoreUpper(dice, 4);
-        case "fives": return scoreUpper(dice, 5);
-        case "sixes": return scoreUpper(dice, 6);
-        case "threeKind": return scoreNKind(dice, 3);
-        case "fourKind": return scoreNKind(dice, 4);
-        case "fullHouse": return scoreFullHouse(dice);
-        case "smallStraight": return scoreStraight(dice, 4);
-        case "largeStraight": return scoreStraight(dice, 5);
-        case "yahtzee": return scoreYahtzee(dice);
-        case "chance": return scoreChance(dice);
-      }
+      return null;
     }
 
+    // ── Totals ─────────────────────────────────────────────────────────
     function upperSubtotal() {
-      return ["ones","twos","threes","fours","fives","sixes"]
-        .reduce((acc, k) => acc + (state.scores[k] || 0), 0);
+      return ROWS.upper.reduce((acc, r) => acc + (state.scores[r.key] || 0), 0);
     }
     function upperBonus() { return upperSubtotal() >= 63 ? 35 : 0; }
     function yahtzeeBonus() { return state.yahtzeeBonusCount * 100; }
     function lowerSubtotal() {
-      return ["threeKind","fourKind","fullHouse","smallStraight","largeStraight","yahtzee","chance"]
-        .reduce((acc, k) => acc + (state.scores[k] || 0), 0) + yahtzeeBonus();
+      const base = ROWS.lower.reduce((acc, r) => acc + (state.scores[r.key] || 0), 0);
+      return base + yahtzeeBonus();
     }
     function grandTotal() {
       return upperSubtotal() + upperBonus() + lowerSubtotal();
     }
 
-    function diceFresh() {
-      // The dice are "rolled" if rollsLeft has been decremented at least once.
-      // At start of turn (rollsLeft === 3), they're not yet rolled.
-      return state.rollsLeft < 3;
-    }
-
-    function gameOver() {
-      return Object.values(state.scores).every(v => v !== null);
-    }
-
     // ── Rendering ──────────────────────────────────────────────────────
-    const PIP_LAYOUTS = {
-      1: [4],
-      2: [0, 8],
-      3: [0, 4, 8],
-      4: [0, 2, 6, 8],
-      5: [0, 2, 4, 6, 8],
-      6: [0, 2, 3, 5, 6, 8],
-    };
-
-    function renderDice() {
-      const root = document.getElementById("dice");
-      root.innerHTML = "";
-      state.dice.forEach((value, i) => {
-        const die = document.createElement("button");
-        die.className = "die" + (state.held[i] ? " held" : "");
-        die.setAttribute("type", "button");
-        die.setAttribute("data-testid", `die-${i}`);
-        die.setAttribute("aria-label", `Die ${i + 1} showing ${value}${state.held[i] ? ", held" : ""}`);
-        die.disabled = !diceFresh();
-        for (let p = 0; p < 9; p++) {
-          const pip = document.createElement("span");
-          pip.className = "pip" + (PIP_LAYOUTS[value].includes(p) ? " on" : "");
-          die.appendChild(pip);
-        }
-        die.addEventListener("click", () => {
-          if (!diceFresh()) return;
-          state.held[i] = !state.held[i];
-          saveState(); render();
-        });
-        root.appendChild(die);
-      });
-    }
-
-    function renderControls() {
-      const rollBtn = document.getElementById("roll");
-      const info = document.getElementById("roll-info");
-      const over = gameOver();
-      rollBtn.disabled = state.rollsLeft === 0 || over;
-      rollBtn.textContent = over ? "Game Over" : `Roll (${state.rollsLeft})`;
-
-      if (over) {
-        info.textContent = `Final score: ${grandTotal()}. Tap "New Game" to play again.`;
-      } else if (!diceFresh()) {
-        info.textContent = `Tap dice to hold. ${state.rollsLeft} rolls left this turn.`;
-      } else if (state.rollsLeft === 3) {
-        info.textContent = "Tap roll to start your turn.";
-      } else {
-        info.textContent = "Tap roll for next turn.";
-      }
-    }
-
-    const ROWS = {
-      upper: [
-        { key: "ones", label: "Ones", desc: "Sum of 1s" },
-        { key: "twos", label: "Twos", desc: "Sum of 2s" },
-        { key: "threes", label: "Threes", desc: "Sum of 3s" },
-        { key: "fours", label: "Fours", desc: "Sum of 4s" },
-        { key: "fives", label: "Fives", desc: "Sum of 5s" },
-        { key: "sixes", label: "Sixes", desc: "Sum of 6s" },
-      ],
-      lower: [
-        { key: "threeKind", label: "3 of a Kind", desc: "Sum of all dice" },
-        { key: "fourKind", label: "4 of a Kind", desc: "Sum of all dice" },
-        { key: "fullHouse", label: "Full House", desc: "25 points" },
-        { key: "smallStraight", label: "Small Straight", desc: "4 in a row · 30 pts" },
-        { key: "largeStraight", label: "Large Straight", desc: "5 in a row · 40 pts" },
-        { key: "yahtzee", label: "Yahtzee", desc: "5 of a kind · 50 pts" },
-        { key: "chance", label: "Chance", desc: "Sum of all dice" },
-      ],
-    };
-
-    function renderScorecard(sectionKey) {
+    function renderSection(sectionKey) {
       const root = document.getElementById(sectionKey);
       root.innerHTML = "";
-      const rows = ROWS[sectionKey];
-      const showPreviews = diceFresh() && !gameOver();
-      const previews = showPreviews
-        ? rows.map(r => ({ key: r.key, value: previewFor(r.key, state.dice) }))
-        : [];
-      // Find top suggestion (highest non-zero preview among unlocked rows).
-      let topPreview = null;
-      if (showPreviews) {
-        const unlocked = previews.filter(p => state.scores[p.key] === null && p.value > 0);
-        if (unlocked.length > 0) {
-          topPreview = unlocked.reduce((a, b) => b.value > a.value ? b : a);
-        }
-      }
-
-      for (const r of rows) {
+      for (const r of ROWS[sectionKey]) {
         const locked = state.scores[r.key] !== null;
-        const preview = showPreviews ? previewFor(r.key, state.dice) : null;
         const row = document.createElement("div");
-        row.className = "row" + (locked ? " locked" : " lockable") +
-          (topPreview && topPreview.key === r.key ? " suggested" : "");
+        row.className = "row lockable";
         row.setAttribute("data-testid", `row-${r.key}`);
 
         const label = document.createElement("div");
@@ -488,133 +425,128 @@
         if (locked) {
           score.className = "score locked";
           score.textContent = state.scores[r.key];
-          score.setAttribute("title", "Tap to clear (long-press)");
-          attachLongPress(score, () => clearScore(r.key));
-        } else if (showPreviews && preview > 0) {
-          score.className = "score preview";
-          score.textContent = preview;
-        } else if (showPreviews && preview === 0) {
-          score.className = "score zero-preview";
-          score.textContent = "0";
         } else {
           score.className = "score empty";
           score.textContent = "—";
         }
         row.appendChild(score);
-
-        if (!locked && showPreviews) {
-          row.addEventListener("click", (e) => {
-            if (e.target === score && score.classList.contains("locked")) return;
-            lockScore(r.key, preview);
-          });
-        }
+        row.addEventListener("click", () => openPicker(r.key));
         root.appendChild(row);
       }
 
-      if (sectionKey === "upper") {
-        appendSubtotalRow(root, "Subtotal", upperSubtotal(), false);
-        const bonus = upperBonus();
-        if (bonus === 35) {
-          appendSubtotalRow(root, "Bonus (≥63)", 35, false, "bonus-earned");
-        } else {
-          const need = Math.max(0, 63 - upperSubtotal());
-          appendSubtotalRow(root, "Bonus (≥63)", `+${need} to go`, false, "bonus-progress");
-        }
-      } else {
-        if (state.yahtzeeBonusCount > 0) {
-          appendSubtotalRow(root, `Yahtzee Bonus ×${state.yahtzeeBonusCount}`, yahtzeeBonus(), false, "bonus-earned");
-        }
-        appendSubtotalRow(root, "Subtotal", lowerSubtotal(), false);
+      if (sectionKey === "lower" && state.yahtzeeBonusCount > 0) {
+        appendSubtotalRow(root, `Yahtzee Bonus ×${state.yahtzeeBonusCount}`, yahtzeeBonus(), "yahtzee-bonus");
       }
     }
 
-    function appendSubtotalRow(root, label, value, _, scoreClass = "") {
+    function appendSubtotalRow(root, label, value, key) {
       const row = document.createElement("div");
       row.className = "row subtotal";
       const lab = document.createElement("div");
       lab.className = "label";
       lab.textContent = label;
       const sc = document.createElement("div");
-      sc.className = "score " + scoreClass;
+      sc.className = "score";
       sc.textContent = value;
+      sc.setAttribute("data-testid", key);
       row.appendChild(lab);
       row.appendChild(sc);
       root.appendChild(row);
     }
 
-    function attachLongPress(el, fn) {
-      let timer = null;
-      const start = (e) => {
-        e.preventDefault();
-        timer = setTimeout(() => { timer = null; fn(); }, 600);
-      };
-      const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
-      el.addEventListener("touchstart", start, { passive: false });
-      el.addEventListener("touchend", cancel);
-      el.addEventListener("touchcancel", cancel);
-      el.addEventListener("touchmove", cancel);
-      el.addEventListener("mousedown", start);
-      el.addEventListener("mouseup", cancel);
-      el.addEventListener("mouseleave", cancel);
-    }
-
-    function renderTotal() {
+    function renderSummary() {
+      document.querySelector('[data-testid="upper-subtotal"]').textContent = upperSubtotal();
+      document.querySelector('[data-testid="lower-subtotal"]').textContent = lowerSubtotal();
+      const bonusEl = document.querySelector('[data-testid="upper-bonus"]');
+      const bonusStat = document.getElementById("bonus-stat");
+      const bonus = upperBonus();
+      bonusStat.classList.remove("bonus-pending", "bonus-earned");
+      if (bonus === 35) {
+        bonusEl.textContent = "+35";
+        bonusStat.classList.add("bonus-earned");
+      } else {
+        const need = 63 - upperSubtotal();
+        bonusEl.textContent = need > 0 ? `${need} to go` : "+0";
+        bonusStat.classList.add("bonus-pending");
+      }
       document.querySelector(".total").textContent = grandTotal();
     }
 
     function render() {
-      renderDice();
-      renderControls();
-      renderScorecard("upper");
-      renderScorecard("lower");
-      renderTotal();
+      renderSection("upper");
+      renderSection("lower");
+      renderSummary();
     }
 
-    // ── Actions ────────────────────────────────────────────────────────
-    function rollDice() {
-      if (state.rollsLeft === 0 || gameOver()) return;
-      for (let i = 0; i < 5; i++) {
-        if (!state.held[i] || state.rollsLeft === 3) {
-          state.dice[i] = 1 + Math.floor(Math.random() * 6);
-        }
+    // ── Picker ─────────────────────────────────────────────────────────
+    let activeKey = null;
+
+    function openPicker(key) {
+      const cfg = rowConfig(key);
+      if (!cfg) return;
+      activeKey = key;
+      document.getElementById("picker-title").textContent = cfg.label;
+      document.getElementById("picker-desc").textContent = cfg.desc;
+      const opts = document.getElementById("picker-options");
+      opts.className = "picker-options" + (cfg.toggle ? " toggle" : "");
+      opts.innerHTML = "";
+      for (const v of cfg.options) {
+        const b = document.createElement("button");
+        b.className = "picker-option" + (v === 0 ? " zero" : " score");
+        b.type = "button";
+        b.textContent = v;
+        b.setAttribute("data-testid", `option-${key}-${v}`);
+        b.addEventListener("click", () => commit(key, v));
+        opts.appendChild(b);
       }
-      state.rollsLeft--;
-      saveState(); render();
+      // Show/hide Clear depending on whether the row is filled.
+      document.getElementById("picker-clear").style.visibility =
+        state.scores[key] !== null ? "visible" : "hidden";
+      document.getElementById("picker-backdrop").classList.add("open");
     }
 
-    function lockScore(key, value) {
-      // Yahtzee bonus: any subsequent Yahtzee roll while the Yahtzee box
-      // is already filled with 50 awards 100 bonus points (per round).
-      if (isYahtzee(state.dice) && state.scores.yahtzee === 50 && key !== "yahtzee") {
+    function closePicker() {
+      activeKey = null;
+      document.getElementById("picker-backdrop").classList.remove("open");
+    }
+
+    function commit(key, value) {
+      // Yahtzee bonus: any subsequent Yahtzee logged after the Yahtzee box
+      // is filled with 50 awards 100 bonus per occurrence (joker rule).
+      // We surface a discrete "+1 Yahtzee bonus" prompt so the user
+      // explicitly tracks it instead of clobbering the lock.
+      if (key === "yahtzee" && value === 50 && state.scores.yahtzee === 50) {
         state.yahtzeeBonusCount++;
+        saveState(); render(); closePicker();
+        return;
       }
       state.scores[key] = value;
-      // Reset for next turn.
-      state.rollsLeft = 3;
-      state.held = [false, false, false, false, false];
-      saveState(); render();
+      saveState(); render(); closePicker();
     }
 
-    function clearScore(key) {
-      if (state.scores[key] === null) return;
-      if (!confirm(`Clear "${key}" score?`)) return;
-      state.scores[key] = null;
-      saveState(); render();
+    function clearActive() {
+      if (!activeKey) return;
+      state.scores[activeKey] = null;
+      saveState(); render(); closePicker();
     }
 
     function newGame() {
-      if (Object.values(state.scores).some(v => v !== null) &&
-          !confirm("Start a new game? Current scores will be lost.")) return;
+      const filled = Object.values(state.scores).some(v => v !== null) ||
+                     state.yahtzeeBonusCount > 0;
+      if (filled && !confirm("Start a new game? Current scores will be lost.")) return;
       state = initialState();
       saveState(); render();
     }
 
-    document.getElementById("roll").addEventListener("click", rollDice);
+    document.getElementById("picker-backdrop").addEventListener("click", (e) => {
+      if (e.target.id === "picker-backdrop") closePicker();
+    });
+    document.getElementById("picker-close").addEventListener("click", closePicker);
+    document.getElementById("picker-cancel").addEventListener("click", closePicker);
+    document.getElementById("picker-clear").addEventListener("click", clearActive);
     document.getElementById("new-game").addEventListener("click", newGame);
-
-    // Service-worker-free; just respond to visibility for the resume case.
-    document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) render();
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && activeKey) closePicker();
     });
 
     render();

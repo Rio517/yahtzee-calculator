@@ -40,60 +40,10 @@
       padding: max(12px, env(safe-area-inset-top)) 12px max(20px, env(safe-area-inset-bottom));
     }
 
-    header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-    h1 {
-      font-size: 20px;
-      margin: 0;
-      letter-spacing: -0.01em;
-    }
-    .total {
-      font-variant-numeric: tabular-nums;
-      font-weight: 700;
-      font-size: 22px;
-      color: var(--accent);
-      margin-left: auto;
-    }
-    .btn-header {
-      padding: 6px 12px;
-      font-size: 12px;
-      border-radius: 8px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .summary {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .stat {
-      background: var(--surface);
-      border-radius: 10px;
-      padding: 10px;
-      text-align: center;
-    }
-    .stat .stat-label {
-      display: block;
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-    .stat .stat-value {
-      font-variant-numeric: tabular-nums;
-      font-weight: 700;
-      font-size: 18px;
-    }
-    .stat.bonus-pending .stat-value { color: var(--warn); font-size: 13px; }
-    .stat.bonus-earned .stat-value { color: var(--good); }
-
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    /* .btn is the base; modifiers below (.btn-header, .picker-actions
+       variants) refine it. Defined first so modifier rules win on equal
+       specificity. */
     .btn {
       padding: 12px;
       border-radius: 10px;
@@ -109,7 +59,64 @@
     }
     .btn:active { opacity: 0.7; }
 
-    /* Scorecard */
+    /* ── Header ──────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .btn-header {
+      padding: 8px 14px;
+      font-size: 13px;
+      border-radius: 8px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-left: auto;
+    }
+
+    /* ── Summary (Upper + Lower = Total) ─────────────────────────────── */
+    .summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      flex: 1;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      min-width: 0;
+    }
+    .stat .stat-label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .stat .stat-value {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .stat.total .stat-value { color: var(--accent); }
+    .stat-op {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+
+    /* ── Scorecard ───────────────────────────────────────────────────── */
     .section {
       margin-bottom: 16px;
     }
@@ -138,12 +145,18 @@
       transition: background 120ms;
     }
     .row:last-child { border-bottom: none; }
+    /* The upper section's last lockable row (Sixes) sits directly above
+       the static Bonus row. Restore its border so the two read as
+       separate rows inside the same card. */
+    #upper > .row:last-child { border-bottom: 1px solid var(--surface-2); }
     .row.lockable:active { background: var(--tap); }
     .row.subtotal {
       cursor: default;
       background: var(--surface-2);
       font-weight: 600;
     }
+    .row.bonus-pending .score { color: var(--warn); font-size: 14px; }
+    .row.bonus-earned .score { color: var(--good); }
     .label {
       font-size: 14px;
     }
@@ -173,7 +186,7 @@
       background: var(--accent-dim);
     }
 
-    /* Picker overlay */
+    /* ── Picker overlay ──────────────────────────────────────────────── */
     .picker-backdrop {
       position: fixed;
       inset: 0;
@@ -264,6 +277,7 @@
       color: var(--accent);
     }
 
+    /* ── Footer ──────────────────────────────────────────────────────── */
     .footer {
       text-align: center;
       font-size: 11px;
@@ -272,6 +286,7 @@
     }
     .footer a { color: var(--muted); }
 
+    /* ── Responsive ──────────────────────────────────────────────────── */
     /* Side-by-side sections. Two columns kick in at modern phone-portrait
        widths (iPhone 16 = 393px). Below 380px we stay stacked since the
        longer Lower-section labels won't fit cleanly. */
@@ -289,8 +304,7 @@
        hide row descriptions, shrink the score chip. */
     @media (min-width: 380px) and (max-width: 639px) {
       .sections .row { padding: 8px 10px; }
-      .sections .label { font-size: 13px; }
-      .sections .label .desc { display: none; }
+      .sections .label { font-size: 15px; }
       .sections .score {
         font-size: 16px;
         min-width: 34px;
@@ -310,7 +324,6 @@
     <header>
       <h1>Yahtzee Logger</h1>
       <button class="btn btn-header" id="new-game" data-testid="btn-new-game">New</button>
-      <div class="total" data-testid="grand-total">0</div>
     </header>
 
     <div class="summary">
@@ -318,20 +331,28 @@
         <span class="stat-label">Upper</span>
         <span class="stat-value" data-testid="upper-subtotal">0</span>
       </div>
-      <div class="stat" id="bonus-stat">
-        <span class="stat-label">Bonus</span>
-        <span class="stat-value" data-testid="upper-bonus">+63</span>
-      </div>
+      <span class="stat-op" aria-hidden="true">+</span>
       <div class="stat">
         <span class="stat-label">Lower</span>
         <span class="stat-value" data-testid="lower-subtotal">0</span>
+      </div>
+      <span class="stat-op" aria-hidden="true">=</span>
+      <div class="stat total">
+        <span class="stat-label">Total</span>
+        <span class="stat-value" data-testid="grand-total">0</span>
       </div>
     </div>
 
     <div class="sections">
       <div class="section">
         <h2>Upper Section</h2>
-        <div class="scorecard" id="upper"></div>
+        <div class="scorecard">
+          <div id="upper"></div>
+          <div class="row subtotal" id="bonus-row">
+            <div class="label">Bonus</div>
+            <div class="score" data-testid="upper-bonus">63 to go</div>
+          </div>
+        </div>
       </div>
 
       <div class="section">
@@ -404,6 +425,7 @@
 
     let state = initialState();
 
+    // ── State & persistence ────────────────────────────────────────────
     function loadStored() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -496,7 +518,8 @@
       const root = document.getElementById(sectionKey);
       root.innerHTML = "";
       for (const r of ROWS[sectionKey]) {
-        const locked = state.scores[r.key] !== null;
+        const value = state.scores[r.key];
+        const locked = value !== null;
         const row = document.createElement("div");
         row.className = "row lockable";
         row.setAttribute("data-testid", `row-${r.key}`);
@@ -507,13 +530,8 @@
         row.appendChild(label);
 
         const score = document.createElement("div");
-        if (locked) {
-          score.className = "score locked";
-          score.textContent = state.scores[r.key];
-        } else {
-          score.className = "score empty";
-          score.textContent = "—";
-        }
+        score.className = locked ? "score locked" : "score empty";
+        score.textContent = locked ? value : "—";
         row.appendChild(score);
         row.addEventListener("click", () => openPicker(r.key));
         root.appendChild(row);
@@ -542,19 +560,20 @@
     function renderSummary() {
       document.querySelector('[data-testid="upper-subtotal"]').textContent = upperSubtotal();
       document.querySelector('[data-testid="lower-subtotal"]').textContent = lowerSubtotal();
+      document.querySelector('[data-testid="grand-total"]').textContent = grandTotal();
+
+      const bonusRow = document.getElementById("bonus-row");
       const bonusEl = document.querySelector('[data-testid="upper-bonus"]');
-      const bonusStat = document.getElementById("bonus-stat");
       const bonus = upperBonus();
-      bonusStat.classList.remove("bonus-pending", "bonus-earned");
+      bonusRow.classList.remove("bonus-pending", "bonus-earned");
       if (bonus === 35) {
         bonusEl.textContent = "+35";
-        bonusStat.classList.add("bonus-earned");
+        bonusRow.classList.add("bonus-earned");
       } else {
         const need = 63 - upperSubtotal();
         bonusEl.textContent = need > 0 ? `${need} to go` : "+0";
-        bonusStat.classList.add("bonus-pending");
+        bonusRow.classList.add("bonus-pending");
       }
-      document.querySelector(".total").textContent = grandTotal();
     }
 
     function render() {
@@ -595,26 +614,34 @@
       document.getElementById("picker-backdrop").classList.remove("open");
     }
 
+    function setScore(key, value) {
+      state.scores[key] = value;
+      // Yahtzee bonuses are only valid while the Yahtzee box still holds 50.
+      // Clearing it (null) or scoring it 0 wipes accumulated bonuses too,
+      // so no orphaned state survives.
+      if (key === "yahtzee" && value !== 50) state.yahtzeeBonusCount = 0;
+    }
+
     function commit(key, value) {
-      // Yahtzee bonus: any subsequent Yahtzee logged after the Yahtzee box
-      // is filled with 50 awards 100 bonus per occurrence (joker rule).
-      // We surface a discrete "+1 Yahtzee bonus" prompt so the user
-      // explicitly tracks it instead of clobbering the lock.
+      // Yahtzee joker rule: any subsequent Yahtzee logged after the box is
+      // already filled with 50 awards a +100 bonus per occurrence. We
+      // surface a discrete increment so the user explicitly tracks it
+      // instead of clobbering the lock.
       if (key === "yahtzee" && value === 50 && state.scores.yahtzee === 50) {
         state.yahtzeeBonusCount++;
-        saveState(); render(); closePicker();
-        return;
+      } else {
+        setScore(key, value);
       }
-      state.scores[key] = value;
       saveState(); render(); closePicker();
     }
 
     function clearActive() {
       if (!activeKey) return;
-      state.scores[activeKey] = null;
+      setScore(activeKey, null);
       saveState(); render(); closePicker();
     }
 
+    // ── Game lifecycle ─────────────────────────────────────────────────
     function resetGame() {
       state = initialState();
       saveState();
@@ -631,27 +658,34 @@
       document.getElementById("confirm-new-backdrop").classList.remove("open");
     }
 
-    document.getElementById("picker-backdrop").addEventListener("click", (e) => {
-      if (e.target.id === "picker-backdrop") closePicker();
-    });
-    document.getElementById("picker-close").addEventListener("click", closePicker);
-    document.getElementById("picker-cancel").addEventListener("click", closePicker);
-    document.getElementById("picker-clear").addEventListener("click", clearActive);
-    document.getElementById("new-game").addEventListener("click", newGame);
-    document.getElementById("confirm-new-cancel").addEventListener("click", closeConfirmNew);
-    document.getElementById("confirm-new-ok").addEventListener("click", () => {
-      closeConfirmNew();
-      resetGame();
-    });
-    document.getElementById("confirm-new-backdrop").addEventListener("click", (e) => {
-      if (e.target.id === "confirm-new-backdrop") closeConfirmNew();
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        if (activeKey) closePicker();
+    // ── Event wiring ───────────────────────────────────────────────────
+    function setupEvents() {
+      // Tap the backdrop (not the dialog itself) to dismiss.
+      const backdropDismiss = (id, closer) =>
+        document.getElementById(id).addEventListener("click", (e) => {
+          if (e.target.id === id) closer();
+        });
+      backdropDismiss("picker-backdrop", closePicker);
+      backdropDismiss("confirm-new-backdrop", closeConfirmNew);
+
+      document.getElementById("picker-close").addEventListener("click", closePicker);
+      document.getElementById("picker-cancel").addEventListener("click", closePicker);
+      document.getElementById("picker-clear").addEventListener("click", clearActive);
+
+      document.getElementById("new-game").addEventListener("click", newGame);
+      document.getElementById("confirm-new-cancel").addEventListener("click", closeConfirmNew);
+      document.getElementById("confirm-new-ok").addEventListener("click", () => {
         closeConfirmNew();
-      }
-    });
+        resetGame();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (activeKey) closePicker();
+          closeConfirmNew();
+        }
+      });
+    }
 
     // ── Resume prompt ──────────────────────────────────────────────────
     function promptResume(stored) {
@@ -664,6 +698,8 @@
       const backdrop = document.getElementById("resume-backdrop");
       backdrop.classList.add("open");
 
+      // Use .onclick (not addEventListener) so we replace any handler from
+      // a prior prompt, instead of accumulating listeners.
       const cont = document.getElementById("resume-continue");
       const fresh = document.getElementById("resume-new");
       const close = () => backdrop.classList.remove("open");
@@ -673,14 +709,13 @@
         close();
       };
       fresh.onclick = () => {
-        state = initialState();
-        saveState();
-        render();
+        resetGame();
         close();
       };
     }
 
     function init() {
+      setupEvents();
       const stored = loadStored();
       if (stored && hasProgress(stored.state)) {
         const age = Date.now() - stored.updatedAt;

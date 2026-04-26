@@ -272,17 +272,36 @@
     }
     .footer a { color: var(--muted); }
 
-    /* Side-by-side sections when there's room. iPhone portrait widths
-       (~390px) stay stacked; landscape phones and tablets get 2 columns. */
-    @media (min-width: 640px) {
-      .app { max-width: 760px; }
+    /* Side-by-side sections. Two columns kick in at modern phone-portrait
+       widths (iPhone 16 = 393px). Below 380px we stay stacked since the
+       longer Lower-section labels won't fit cleanly. */
+    @media (min-width: 380px) {
       .sections {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        gap: 8px;
         align-items: start;
       }
       .sections .section { margin-bottom: 0; }
+    }
+
+    /* Tight styling for narrow phone-portrait 2-column: trim padding,
+       hide row descriptions, shrink the score chip. */
+    @media (min-width: 380px) and (max-width: 639px) {
+      .sections .row { padding: 8px 10px; }
+      .sections .label { font-size: 13px; }
+      .sections .label .desc { display: none; }
+      .sections .score {
+        font-size: 16px;
+        min-width: 34px;
+        padding: 4px 6px;
+      }
+    }
+
+    /* Roomy layout for landscape phones, tablets, and desktop. */
+    @media (min-width: 640px) {
+      .app { max-width: 760px; }
+      .sections { gap: 16px; }
     }
   </style>
 </head>

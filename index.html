@@ -42,8 +42,8 @@
 
     header {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
       margin-bottom: 14px;
     }
     h1 {
@@ -56,6 +56,14 @@
       font-weight: 700;
       font-size: 22px;
       color: var(--accent);
+      margin-left: auto;
+    }
+    .btn-header {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
 
     .summary {
@@ -86,12 +94,6 @@
     .stat.bonus-pending .stat-value { color: var(--warn); font-size: 13px; }
     .stat.bonus-earned .stat-value { color: var(--good); }
 
-    .controls {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      margin-bottom: 18px;
-    }
     .btn {
       padding: 12px;
       border-radius: 10px;
@@ -269,12 +271,26 @@
       padding-top: 8px;
     }
     .footer a { color: var(--muted); }
+
+    /* Side-by-side sections when there's room. iPhone portrait widths
+       (~390px) stay stacked; landscape phones and tablets get 2 columns. */
+    @media (min-width: 640px) {
+      .app { max-width: 760px; }
+      .sections {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      .sections .section { margin-bottom: 0; }
+    }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
       <h1>Yahtzee Logger</h1>
+      <button class="btn btn-header" id="new-game" data-testid="btn-new-game">New</button>
       <div class="total" data-testid="grand-total">0</div>
     </header>
 
@@ -293,22 +309,34 @@
       </div>
     </div>
 
-    <div class="controls">
-      <button class="btn" id="new-game" data-testid="btn-new-game">New Game</button>
-    </div>
+    <div class="sections">
+      <div class="section">
+        <h2>Upper Section</h2>
+        <div class="scorecard" id="upper"></div>
+      </div>
 
-    <div class="section">
-      <h2>Upper Section</h2>
-      <div class="scorecard" id="upper"></div>
-    </div>
-
-    <div class="section">
-      <h2>Lower Section</h2>
-      <div class="scorecard" id="lower"></div>
+      <div class="section">
+        <h2>Lower Section</h2>
+        <div class="scorecard" id="lower"></div>
+      </div>
     </div>
 
     <div class="footer">
       Yahtzee logger · works offline · <a href="https://github.com/Rio517/yahtzee-calculator">source</a>
+    </div>
+  </div>
+
+  <!-- New-game confirm overlay -->
+  <div class="picker-backdrop" id="confirm-new-backdrop" data-testid="confirm-new-modal">
+    <div class="picker" role="dialog" aria-labelledby="confirm-new-title">
+      <div class="picker-head">
+        <span class="picker-title" id="confirm-new-title">Start a new game?</span>
+      </div>
+      <p class="picker-desc">Your current scores will be lost.</p>
+      <div class="picker-actions">
+        <button class="btn btn-cancel" id="confirm-new-cancel" data-testid="confirm-new-cancel">Cancel</button>
+        <button class="btn btn-clear" id="confirm-new-ok" data-testid="confirm-new-ok">Start New</button>
+      </div>
     </div>
   </div>
 
@@ -568,12 +596,20 @@
       saveState(); render(); closePicker();
     }
 
-    function newGame() {
-      const filled = Object.values(state.scores).some(v => v !== null) ||
-                     state.yahtzeeBonusCount > 0;
-      if (filled && !confirm("Start a new game? Current scores will be lost.")) return;
+    function resetGame() {
       state = initialState();
-      saveState(); render();
+      saveState();
+      render();
+    }
+    function newGame() {
+      if (hasProgress(state)) {
+        document.getElementById("confirm-new-backdrop").classList.add("open");
+        return;
+      }
+      resetGame();
+    }
+    function closeConfirmNew() {
+      document.getElementById("confirm-new-backdrop").classList.remove("open");
     }
 
     document.getElementById("picker-backdrop").addEventListener("click", (e) => {
@@ -583,8 +619,19 @@
     document.getElementById("picker-cancel").addEventListener("click", closePicker);
     document.getElementById("picker-clear").addEventListener("click", clearActive);
     document.getElementById("new-game").addEventListener("click", newGame);
+    document.getElementById("confirm-new-cancel").addEventListener("click", closeConfirmNew);
+    document.getElementById("confirm-new-ok").addEventListener("click", () => {
+      closeConfirmNew();
+      resetGame();
+    });
+    document.getElementById("confirm-new-backdrop").addEventListener("click", (e) => {
+      if (e.target.id === "confirm-new-backdrop") closeConfirmNew();
+    });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && activeKey) closePicker();
+      if (e.key === "Escape") {
+        if (activeKey) closePicker();
+        closeConfirmNew();
+      }
     });
 
     // ── Resume prompt ──────────────────────────────────────────────────

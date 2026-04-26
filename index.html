@@ -256,6 +256,11 @@
       background: var(--surface-2);
       border: 1px solid var(--border);
     }
+    .picker-actions .btn-primary {
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
 
     .footer {
       text-align: center;
@@ -307,6 +312,20 @@
     </div>
   </div>
 
+  <!-- Resume-game overlay -->
+  <div class="picker-backdrop" id="resume-backdrop" data-testid="resume-modal">
+    <div class="picker" role="dialog" aria-labelledby="resume-title">
+      <div class="picker-head">
+        <span class="picker-title" id="resume-title">Resume previous game?</span>
+      </div>
+      <p class="picker-desc" id="resume-desc"></p>
+      <div class="picker-actions">
+        <button class="btn btn-cancel" id="resume-new" data-testid="resume-new">Start New</button>
+        <button class="btn btn-primary" id="resume-continue" data-testid="resume-continue">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Picker overlay -->
   <div class="picker-backdrop" id="picker-backdrop" data-testid="picker">
     <div class="picker" role="dialog" aria-labelledby="picker-title">
@@ -325,6 +344,7 @@
 
   <script>
     const STORAGE_KEY = "yahtzee-logger-v1";
+    const RESUME_PROMPT_AFTER_MS = 60 * 60 * 1000; // 1 hour
 
     const initialState = () => ({
       scores: {
@@ -335,16 +355,34 @@
       yahtzeeBonusCount: 0,
     });
 
-    let state = loadState() || initialState();
+    let state = initialState();
 
-    function loadState() {
+    function loadStored() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        // Wrapped form: { state, updatedAt }. Legacy form: bare state object.
+        if (parsed && parsed.state && typeof parsed.updatedAt === "number") {
+          return parsed;
+        }
+        if (parsed && parsed.scores) {
+          return { state: parsed, updatedAt: Date.now() };
+        }
+        return null;
       } catch { return null; }
     }
     function saveState() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ state, updatedAt: Date.now() })
+        );
+      } catch {}
+    }
+    function hasProgress(s) {
+      return Object.values(s.scores).some(v => v !== null) ||
+             s.yahtzeeBonusCount > 0;
     }
 
     // ── Score config ───────────────────────────────────────────────────
@@ -549,7 +587,50 @@
       if (e.key === "Escape" && activeKey) closePicker();
     });
 
-    render();
+    // ── Resume prompt ──────────────────────────────────────────────────
+    function promptResume(stored) {
+      const when = new Date(stored.updatedAt).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      document.getElementById("resume-desc").textContent =
+        `Found a game from ${when}. Continue where you left off, or start a new game?`;
+      const backdrop = document.getElementById("resume-backdrop");
+      backdrop.classList.add("open");
+
+      const cont = document.getElementById("resume-continue");
+      const fresh = document.getElementById("resume-new");
+      const close = () => backdrop.classList.remove("open");
+      cont.onclick = () => {
+        // Keep the previewed state; refresh the timestamp so we don't re-prompt.
+        saveState();
+        close();
+      };
+      fresh.onclick = () => {
+        state = initialState();
+        saveState();
+        render();
+        close();
+      };
+    }
+
+    function init() {
+      const stored = loadStored();
+      if (stored && hasProgress(stored.state)) {
+        const age = Date.now() - stored.updatedAt;
+        if (age > RESUME_PROMPT_AFTER_MS) {
+          // Preview the loaded game behind the modal.
+          state = stored.state;
+          render();
+          promptResume(stored);
+          return;
+        }
+        state = stored.state;
+      }
+      render();
+    }
+
+    init();
   </script>
 </body>
 </html>

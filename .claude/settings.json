@@ -11,6 +11,8 @@
       "Bash(npm run dev:*)",
       "Bash(npm run knip:*)",
       "Bash(npm run lint:*)",
+      "Bash(npm run new-game:*)",
+      "Bash(npm run previews:*)",
       "Bash(npm run preview:*)",
       "Bash(npm run shots:*)",
       "Bash(npm run test:*)",

@@ -1,0 +1,67 @@
+/*
+ * __title__ — the screen's own styles. Colours and controls come from the
+ * shared tokens (@shared/styles/tokens.css); this file only lays out what is
+ * particular to this game. `--c` is the game's ticket colour, the same one
+ * the landing page uses for its ticket.
+ */
+.__id__ { --c: __color__; }
+
+.__id__-board { text-align: center; }
+
+.__id__-hint {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 4px 0 2px;
+  min-height: 1.3em;
+  color: var(--c);
+}
+.__id__-hint.is-found { color: var(--good); }
+
+.__id__-pad {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.__id__-key {
+  min-height: 56px; /* a finger-sized target on a tablet */
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 120ms, transform 120ms;
+}
+.__id__-key:hover:not(:disabled) { border-color: var(--c); }
+.__id__-key:active:not(:disabled) { transform: scale(0.96); }
+.__id__-key:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+.__id__-key:disabled { cursor: default; opacity: 0.35; }
+.__id__-key.is-used { text-decoration: line-through; }
+
+.__id__-result h2 { margin: 0 0 6px; font-size: 22px; }
+.__id__-result p { margin: 0 0 14px; }
+
+.__id__-help-body { padding: 16px; }
+.__id__-help-body p { margin: 0 0 10px; }
+.__id__-help-body p:last-child { margin-bottom: 0; }
+
+/* Every animation sits behind the motion preference (the accessibility
+   floor): the found-it bounce only runs for players who have not turned
+   motion down. */
+@media (prefers-reduced-motion: no-preference) {
+  .__id__-hint.is-found { animation: __id__-bounce 500ms ease-out; }
+  @keyframes __id__-bounce {
+    0% { transform: scale(0.8); }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+}
+
+@media (max-width: 480px) {
+  .__id__-pad { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .__id__-hint { font-size: 26px; }
+}

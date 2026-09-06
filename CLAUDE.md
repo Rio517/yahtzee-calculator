@@ -29,7 +29,12 @@ repeats it goes stale. Write plainly. Avoid rhetorical constructions such as
   DOM/network/storage), `components/`, `state/`, `storage/`, `styles/`.
   `src/app/registry.ts` is the ONLY place that lists games — the landing page
   prints a ticket per registry entry automatically. Shared code lives in
-  `src/shared/`; shared never imports a game.
+  `src/shared/`; shared never imports a game. `npm run new-game -- <id>
+  "<Title>"` scaffolds a playable starter from `scripts/templates/game/` and
+  makes the registry, icon, colour, shot and poster edits; CI scaffolds one on
+  every PR, so a change to a shared API the templates use must update them
+  too. The walk-through is `docs/development/adding-a-game.md`;
+  `CONTRIBUTING.md` is the front door for outside contributors.
 - **Event-sourced multiplayer.** Chess and Ship Battle derive all state by
   replaying an ordered log; online peers reconcile by "longer log wins".
   Consequences: undo/rewind are LOCAL-ONLY; custom starting positions are

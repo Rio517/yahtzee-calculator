@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import { seededRng } from '@shared/rng';
+import { GUESSES, HIGHEST, LOWEST, guess, guessesLeft, newRound } from './rules';
+
+describe('__title__ rules', () => {
+  it('hides a number in range — the same one for the same seed', () => {
+    const a = newRound(seededRng(7));
+    const b = newRound(seededRng(7));
+    expect(a.secret).toBe(b.secret);
+    expect(a.secret).toBeGreaterThanOrEqual(LOWEST);
+    expect(a.secret).toBeLessThanOrEqual(HIGHEST);
+    expect(a.hint).toBe('start');
+    expect(guessesLeft(a)).toBe(GUESSES);
+  });
+
+  it('says which way to go, and when it is found', () => {
+    const round = { ...newRound(seededRng(1)), secret: 10 };
+    expect(guess(round, 3).hint).toBe('higher');
+    expect(guess(round, 15).hint).toBe('lower');
+
+    const won = guess(round, 10);
+    expect(won.hint).toBe('found');
+    expect(won.won).toBe(true);
+    expect(won.over).toBe(true);
+  });
+
+  it('ends after the last guess, lost, and stays ended', () => {
+    let round = { ...newRound(seededRng(1)), secret: HIGHEST };
+    for (let n = 1; n <= GUESSES; n++) round = guess(round, n);
+    expect(round.over).toBe(true);
+    expect(round.won).toBe(false);
+    expect(guessesLeft(round)).toBe(0);
+    // The right answer after the end is no longer a guess.
+    expect(guess(round, HIGHEST)).toBe(round);
+  });
+
+  it('ignores a repeated or out-of-range guess', () => {
+    const round = guess({ ...newRound(seededRng(1)), secret: 10 }, 4);
+    expect(guess(round, 4)).toBe(round);
+    expect(guess(round, LOWEST - 1)).toBe(round);
+    expect(guess(round, HIGHEST + 1)).toBe(round);
+  });
+});

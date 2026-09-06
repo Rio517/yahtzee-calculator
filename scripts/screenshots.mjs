@@ -5,35 +5,71 @@
  *   npm run shots                  # every shot
  *   npm run shots -- landing menu  # only shots whose name contains an argument
  *
- * Two things make this worth a script rather than ad-hoc Playwright calls:
+ * Three things make this worth a script rather than ad-hoc Playwright calls:
  *
  * 1. `saveIfChanged` — a PNG is written only when its bytes actually differ,
  *    so re-running doesn't churn git with visually identical images.
  * 2. It serves the *production* build on its own port and tears it down, so a
- *    shot never depends on whichever dev server happened to be running.
+ *    shot never depends on whichever dev server happened to be running (the
+ *    dev server also injects CSS in a different order than the build, which
+ *    once hid a specificity bug).
+ * 3. A shot can fail. `expect` names something that must be on the page and
+ *    `fits` says the page must not scroll, so a wrong route or a layout that
+ *    overflows a monitor is a red run instead of a plausible-looking picture.
+ *    The run exits non-zero if any shot failed; the rest are still written.
  *
- * Browser: Playwright's bundled Chromium. Set PW_CHROMIUM to override with an
- * explicit executable (the cloud sandbox has one at /opt/pw-browsers/...).
+ * Browsers: Playwright's bundled Chromium, and WebKit for the shots that ask
+ * for it (`engines`). The family plays on iPads, and WebKit composites canvas
+ * alpha differently from Chromium — an overlay can look right in one and lose
+ * its colour in the other. Install once: `npx playwright install webkit`.
+ * PW_CHROMIUM / PW_WEBKIT point at explicit executables (the cloud sandbox has
+ * a Chromium at /opt/pw-browsers/...).
+ *
+ * Camera: the fake device shows a still, dark frame (written here — Chromium's
+ * own test pattern carries a clock, which changed the mirror shot every
+ * run), enough for the mirror's frame and controls but no face for the
+ * dragon to sit on. Set MIRROR_PORTRAIT to a front-facing photo (any jpg/png;
+ * ffmpeg must be installed) and the `mirror-face*` shots run against it,
+ * straight and tilted, so a new mask or a pose fix can be judged on a head.
+ * They are for looking at, not for the repo — a photo of someone is nobody's
+ * documentation — so they land in the OS temp directory and the run prints
+ * where. Without a portrait they are skipped.
  */
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT = path.join(ROOT, 'docs', 'screenshots');
 const PORT = Number(process.env.SHOTS_PORT ?? 4317);
 const BASE = `http://localhost:${PORT}`;
 
-/** Phone-ish and tablet-ish; the family plays on iPads and phones. */
+/**
+ * Phone-ish and tablet-ish — the family plays on iPads and phones — and the
+ * two monitor sizes a layout has to fill without scrolling.
+ */
 const PHONE = { width: 430, height: 932 };
 const TABLET = { width: 1180, height: 820 };
+const LAPTOP = { width: 1920, height: 1080 };
+const MONITOR = { width: 2560, height: 1440 };
 
 /**
  * Each shot: where to go, how big, and an optional `prep` that runs before
  * the capture (dismiss an overlay, wait for a canvas to paint, …).
+ *
+ *   expect    a selector that must be on the page after `prep`; the shot
+ *             fails without it (a shot of the wrong page is worse than none)
+ *   fits      the page must not scroll in either direction at this viewport
+ *   engines   ['chromium'] by default; add 'webkit' for canvas and alpha work
+ *             (saved as <name>.webkit.png)
+ *   scale     device pixel ratio, 2 by default; 1 keeps monitor shots small
+ *   camera    'portrait' | 'portrait-tilt' — a real face in the fake camera,
+ *             from MIRROR_PORTRAIT; saved outside the repo; skipped when
+ *             it isn't set
  */
 const SHOTS = [
   {
@@ -41,12 +77,14 @@ const SHOTS = [
     path: '/',
     viewport: TABLET,
     fullPage: true,
+    expect: '[data-testid="ticket-open-chess"]',
   },
   {
     name: 'arcade-landing-phone',
     path: '/',
     viewport: PHONE,
     fullPage: true,
+    expect: '[data-testid="ticket-open-chess"]',
   },
   {
     // A ticket opened to its poster: picture, facts, blurb, Play.
@@ -80,6 +118,7 @@ const SHOTS = [
     path: '/#/privacy',
     viewport: TABLET,
     fullPage: true,
+    expect: 'h1:has-text("Privacy")',
   },
   {
     name: 'battle-view',
@@ -87,6 +126,35 @@ const SHOTS = [
     viewport: TABLET,
     // The fleet tile opens on the 3D ocean by default now — wait for the
     // hulls to decode and the hit/miss markers to settle.
+    prep: async (page) => {
+      await page.waitForSelector('[data-testid="fleet3d"], [data-testid="fleet3d-fallback"]', {
+        timeout: 20000,
+      });
+      await page.waitForTimeout(2500);
+    },
+  },
+  {
+    // The battle on a monitor: the radar takes the square the height allows,
+    // the ocean the width that's left, and nothing scrolls. One of the two
+    // sizes a desk actually has; the wide one below is the other.
+    name: 'battle-laptop',
+    path: '/preview-b.html',
+    viewport: LAPTOP,
+    scale: 1,
+    fits: true,
+    prep: async (page) => {
+      await page.waitForSelector('[data-testid="fleet3d"], [data-testid="fleet3d-fallback"]', {
+        timeout: 20000,
+      });
+      await page.waitForTimeout(2500);
+    },
+  },
+  {
+    name: 'battle-monitor',
+    path: '/preview-b.html',
+    viewport: MONITOR,
+    scale: 1,
+    fits: true,
     prep: async (page) => {
       await page.waitForSelector('[data-testid="fleet3d"], [data-testid="fleet3d-fallback"]', {
         timeout: 20000,
@@ -270,6 +338,7 @@ const SHOTS = [
     path: '/#/chess',
     viewport: PHONE,
     seed: 'signedOut',
+    expect: '[data-testid="pgate-name"]',
   },
   {
     // The party panel wears the signed-in ticket — "You're Klara · Change" —
@@ -405,24 +474,65 @@ const SHOTS = [
     },
   },
   {
-    // The Magic Mirror: the glass itself, with the effects panel on it.
+    // The Magic Mirror: the glass itself, with the effects panel on it. The
+    // glass is cut to the window, so this page never scrolls — on an iPad in
+    // landscape least of all.
     name: 'mirror-page',
     path: '/#/mirror',
     viewport: TABLET,
-    fullPage: true,
+    fits: true,
+    expect: '[data-testid="mirror-video"]',
   },
   {
     // The effects themselves, driven by a scripted tracking frame (no camera
     // in CI): two dragons — one breathing fire — plus a peace-sign burst.
+    // In both engines: the fire once vanished at the mask's edge on WebKit
+    // alone, and this is the shot that would have shown it.
     name: 'mirror-effects',
     path: '/preview-mirror.html',
     viewport: { width: 960, height: 700 },
     selector: '[data-testid="mirror-harness"]',
+    engines: ['chromium', 'webkit'],
     prep: async (page) => {
       await page.waitForSelector('[data-ready="1"]', { timeout: 20000 });
     },
   },
+  {
+    // The dragon on a real head, through the real tracker: does the mask sit
+    // on the face, is it the right size, does the fire start at the mouth?
+    // Needs MIRROR_PORTRAIT (see the header); skipped otherwise, and never
+    // written into docs/.
+    name: 'mirror-face',
+    path: '/#/mirror',
+    viewport: TABLET,
+    camera: 'portrait',
+    selector: '.mirror-stage',
+    prep: waitForMask,
+  },
+  {
+    // The same head, the frame turned 14° clockwise before the camera sees
+    // it. The mask must lean with the head; it once leaned against it.
+    name: 'mirror-face-tilt',
+    path: '/#/mirror',
+    viewport: TABLET,
+    camera: 'portrait-tilt',
+    selector: '.mirror-stage',
+    prep: waitForMask,
+  },
 ];
+
+/**
+ * The mirror's tracker is lazy: ~23 MB of WASM and models on first use, then
+ * a few frames before the mask settles on the face. Tuck the panel away so
+ * the shot is the head, not the chips.
+ */
+async function waitForMask(page) {
+  await page.getByTestId('mirror-video').waitFor();
+  await page.waitForSelector('[data-testid="effects-canvas"]', { timeout: 30000 });
+  await page.waitForSelector('[data-testid="effects-loading"]', { state: 'detached', timeout: 60000 });
+  await page.getByTestId('mirror-controls-toggle').click();
+  await page.waitForTimeout(2500);
+}
 
 /**
  * Every shot runs with this roster already in localStorage: the gate would
@@ -550,6 +660,95 @@ async function waitForServer(url, timeoutMs = 30_000) {
   throw new Error(`preview server never came up at ${url}`);
 }
 
+/**
+ * A real face for Chromium's fake camera, which plays a y4m on a loop as the
+ * device. The portrait becomes a still 640×480 feed — scaled to fit, padded
+ * to the frame, rotated first for the tilt variant — written once per run to
+ * the OS temp directory. A portrait that isn't there, or an ffmpeg that
+ * isn't, is a clear failure rather than a quiet fall-back to the test pattern.
+ */
+function cameraFeed(kind) {
+  const portrait = process.env.MIRROR_PORTRAIT;
+  if (!portrait) return null;
+  if (!fs.existsSync(portrait)) throw new Error(`MIRROR_PORTRAIT not found: ${portrait}`);
+  const out = path.join(os.tmpdir(), `arcade-mirror-${kind}.y4m`);
+  const tilt = kind === 'portrait-tilt' ? 'rotate=14*PI/180:fillcolor=black,' : '';
+  const fit = 'scale=640:480:force_original_aspect_ratio=decrease,pad=640:480:(ow-iw)/2:(oh-ih)/2:black';
+  try {
+    execFileSync(
+      'ffmpeg',
+      ['-y', '-loglevel', 'error', '-loop', '1', '-i', portrait, '-vf', `${tilt}${fit},format=yuv420p`, '-r', '15', '-t', '2', out],
+      { stdio: 'inherit' },
+    );
+  } catch (err) {
+    throw new Error(`could not turn ${portrait} into a camera feed — is ffmpeg installed? (${err.message})`);
+  }
+  return out;
+}
+
+/**
+ * The camera when no portrait is asked for: ten identical frames of dark
+ * grey, as raw YUV, so the glass is still and the same on every machine. No
+ * ffmpeg needed — a y4m is a one-line header and bare planes.
+ */
+function blankFeed() {
+  const w = 640;
+  const h = 480;
+  const out = path.join(os.tmpdir(), 'arcade-mirror-blank.y4m');
+  const frame = Buffer.concat([
+    Buffer.from('FRAME\n'),
+    Buffer.alloc(w * h, 40), // Y: near-black glass
+    Buffer.alloc((w * h) / 2, 128), // U and V: no colour
+  ]);
+  const frames = Array.from({ length: 10 }, () => frame);
+  fs.writeFileSync(out, Buffer.concat([Buffer.from(`YUV4MPEG2 W${w} H${h} F15:1 Ip C420\n`), ...frames]));
+  return out;
+}
+
+/** One browser per engine and camera feed, launched on first use and reused. */
+function browserPool() {
+  const browsers = new Map();
+  return {
+    get(engine, feed) {
+      const key = `${engine}:${feed ?? ''}`;
+      if (!browsers.has(key)) {
+        browsers.set(
+          key,
+          engine === 'webkit'
+            ? webkit.launch({ executablePath: process.env.PW_WEBKIT || undefined })
+            : chromium.launch({
+                executablePath: process.env.PW_CHROMIUM || undefined,
+                args: [
+                  // ANGLE gives the 3D scenes a real GL backend headless; without
+                  // it the chess/battleship/racer canvases fall back to their
+                  // error placeholder.
+                  '--use-gl=angle',
+                  '--use-angle=default',
+                  '--enable-unsafe-swiftshader',
+                  // A camera that is always there and always the same: the Magic
+                  // Mirror opens straight into the glass, and without one every
+                  // shot of it would be the "check the camera permission" door.
+                  '--use-fake-ui-for-media-stream',
+                  '--use-fake-device-for-media-stream',
+                  `--use-file-for-fake-video-capture=${feed ?? blankFeed()}`,
+                ],
+              }),
+        );
+      }
+      return browsers.get(key);
+    },
+    async close() {
+      for (const b of browsers.values()) await b.then((browser) => browser.close()).catch(() => {});
+    },
+  };
+}
+
+/** What `fits` measures: how far the page scrolls past its viewport, each way. */
+function overflow() {
+  const d = document.documentElement;
+  return { down: d.scrollHeight - d.clientHeight, across: d.scrollWidth - d.clientWidth };
+}
+
 async function main() {
   const filters = process.argv.slice(2);
   const shots = filters.length
@@ -563,6 +762,10 @@ async function main() {
     return;
   }
 
+  // Made up front, so a bad portrait fails before the build rather than after.
+  const feeds = {};
+  for (const kind of new Set(shots.map((s) => s.camera).filter(Boolean))) feeds[kind] = cameraFeed(kind);
+
   console.log('Building (with the battle harness)…');
   await run('npx', ['vite', 'build'], { env: { ...process.env, BUILD_HARNESS: '1' } });
 
@@ -572,64 +775,112 @@ async function main() {
     stdio: 'ignore',
   });
 
-  let browser;
+  const browsers = browserPool();
+  const failures = [];
   try {
     await waitForServer(BASE);
 
-    browser = await chromium.launch({
-      executablePath: process.env.PW_CHROMIUM || undefined,
-      args: [
-        // ANGLE gives the 3D scenes a real GL backend headless; without it the
-        // chess/battleship/racer canvases fall back to their error placeholder.
-        '--use-gl=angle',
-        '--use-angle=default',
-        '--enable-unsafe-swiftshader',
-        // A camera that is always there and always the same: the Magic Mirror
-        // opens straight into the glass, and without one every shot of it
-        // would be the "check the camera permission" door. Chromium's fake
-        // device is a moving test pattern, so the mirror shows its frame and
-        // controls rather than a face.
-        '--use-fake-ui-for-media-stream',
-        '--use-fake-device-for-media-stream',
-      ],
-    });
-
     console.log(`Capturing ${shots.length} shot(s) into docs/screenshots/`);
-    const tally = { new: 0, updated: 0, unchanged: 0 };
+    const tally = { new: 0, updated: 0, unchanged: 0, looked: 0, skipped: 0, failed: 0 };
 
     for (const shot of shots) {
-      const page = await browser.newPage({
-        viewport: shot.viewport ?? TABLET,
-        deviceScaleFactor: 2,
-        // Screenshots are documentation, not a motion demo — and the arcade
-        // gates its animations on this, so shots come out settled.
-        reducedMotion: 'reduce',
-      });
-      const roster = shot.seed === 'signedOut' ? { ...SEED_ROSTER, activeId: null } : SEED_ROSTER;
-      await page.addInitScript((state) => {
-        try {
-          localStorage.setItem('arcade.users.v1', JSON.stringify(state));
-        } catch {
-          /* storage blocked — the gate will show instead */
+      for (const engine of shot.engines ?? ['chromium']) {
+        const label = engine === 'webkit' ? `${shot.name}.webkit` : shot.name;
+        if (shot.camera && !feeds[shot.camera]) {
+          console.log(`  skipped:   ${label} (set MIRROR_PORTRAIT to a photo for a face)`);
+          tally.skipped += 1;
+          continue;
         }
-      }, roster);
-      await page.goto(`${BASE}${shot.path}`, { waitUntil: 'networkidle' });
-      if (shot.prep) await shot.prep(page);
-      // `selector` crops to one element — useful when the thing under review is
-      // a canvas inside a wide layout and a full-page shot renders it tiny.
-      const target = shot.selector ? page.locator(shot.selector) : page;
-      const buffer = await target.screenshot(
-        shot.selector ? {} : { fullPage: shot.fullPage ?? false },
-      );
-      tally[saveIfChanged(path.join(OUT, `${shot.name}.png`), buffer)] += 1;
-      await page.close();
+        const viewport = shot.viewport ?? TABLET;
+        let page;
+        try {
+          const browser = await browsers.get(engine, shot.camera ? feeds[shot.camera] : null);
+          page = await browser.newPage({
+            viewport,
+            deviceScaleFactor: shot.scale ?? 2,
+            // Screenshots are documentation, not a motion demo — and the arcade
+            // gates its animations on this, so shots come out settled.
+            reducedMotion: 'reduce',
+          });
+          const roster =
+            shot.seed === 'signedOut' ? { ...SEED_ROSTER, activeId: null } : SEED_ROSTER;
+          await page.addInitScript((state) => {
+            try {
+              localStorage.setItem('arcade.users.v1', JSON.stringify(state));
+            } catch {
+              /* storage blocked — the gate will show instead */
+            }
+          }, roster);
+          await page.goto(`${BASE}${shot.path}`, { waitUntil: 'networkidle' });
+          if (shot.prep) await shot.prep(page);
+
+          // The checks: a shot of the wrong page, or of a page that scrolls
+          // where it mustn't, fails here. The picture is still taken, to the
+          // temp directory, so what went wrong can be seen.
+          const problems = [];
+          if (shot.expect && (await page.locator(shot.expect).count()) === 0) {
+            problems.push(`expected ${shot.expect} on the page and it isn't there`);
+          }
+          if (shot.fits) {
+            const over = await page.evaluate(overflow);
+            if (over.down > 0 || over.across > 0) {
+              problems.push(
+                `does not fit ${viewport.width}×${viewport.height}: scrolls ${over.down}px down, ${over.across}px across`,
+              );
+            }
+          }
+
+          // `selector` crops to one element — useful when the thing under
+          // review is a canvas inside a wide layout and a full-page shot
+          // renders it tiny.
+          const target = shot.selector ? page.locator(shot.selector) : page;
+          const buffer = await target.screenshot(
+            shot.selector ? {} : { fullPage: shot.fullPage ?? false },
+          );
+          if (problems.length) {
+            const file = path.join(os.tmpdir(), 'arcade-shots-failed', `${label}.png`);
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            fs.writeFileSync(file, buffer);
+            throw new Error(`${problems.join('; ')} — see ${file}`);
+          }
+          if (shot.camera) {
+            // Someone's face: a picture to look at now, not one to commit.
+            const file = path.join(os.tmpdir(), 'arcade-shots', `${label}.png`);
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            fs.writeFileSync(file, buffer);
+            console.log(`  look at:   ${file}`);
+            tally.looked += 1;
+            continue;
+          }
+          tally[saveIfChanged(path.join(OUT, `${label}.png`), buffer)] += 1;
+        } catch (err) {
+          const why = String(err.message ?? err).split('\n')[0];
+          console.log(`  FAILED:    ${label} — ${why}`);
+          failures.push(`${label}: ${why}`);
+          tally.failed += 1;
+        } finally {
+          await page?.close().catch(() => {});
+        }
+      }
     }
 
     console.log(
-      `Done — ${tally.new} new, ${tally.updated} updated, ${tally.unchanged} unchanged.`,
+      `Done — ${tally.new} new, ${tally.updated} updated, ${tally.unchanged} unchanged` +
+        (tally.looked ? `, ${tally.looked} outside the repo` : '') +
+        (tally.skipped ? `, ${tally.skipped} skipped` : '') +
+        (tally.failed ? `, ${tally.failed} FAILED` : '') +
+        '.',
     );
+    if (failures.length) {
+      console.error(`\n${failures.length} shot(s) failed:`);
+      for (const f of failures) console.error(`  ${f}`);
+      if (failures.some((f) => f.includes("Executable doesn't exist"))) {
+        console.error('\nInstall the missing browser with: npx playwright install webkit (or chromium)');
+      }
+      process.exitCode = 1;
+    }
   } finally {
-    await browser?.close();
+    await browsers.close();
     server.kill();
   }
 }

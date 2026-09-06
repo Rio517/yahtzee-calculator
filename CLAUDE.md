@@ -105,9 +105,40 @@ using **rebase merges** (sometimes squash). Therefore:
      how you reach the Ship Battle board without playing a whole game.
    - In the cloud sandbox, point `PW_CHROMIUM` at
      `/opt/pw-browsers/chromium-*/chrome-linux/chrome`. Locally, Playwright's
-     own browser is used (`npx playwright install chromium` once).
+     own browsers are used (`npx playwright install chromium webkit` once).
+   - **A shot is evidence once you have opened it and said what you see.** A
+     file that changed is not a check. Open every shot the change touched
+     and name what it shows — the thing you changed, nothing clipped, no
+     scrollbar, the right page.
+   - **Shots can fail, so make them.** A shot takes `expect` (a selector that
+     must be on the page) and `fits` (the page must not scroll at that
+     viewport); a run with a failed shot exits non-zero and keeps the failed
+     picture in the temp directory. Give a new view an `expect`; give a
+     layout that must fill a screen `fits` at the sizes that matter.
+   - **Measure at the size the request names.** The sizes that exist here:
+     phone 430×932, iPad 1180×820 landscape, laptop 1920×1080, monitor
+     2560×1440 (`PHONE`, `TABLET`, `LAPTOP`, `MONITOR`). A layout that
+     "uses the whole screen" is checked at the monitor sizes with `fits`,
+     not eyeballed on the iPad shot.
+   - **The family plays on WebKit.** Shots are Chromium unless a shot lists
+     `engines: ['chromium', 'webkit']`. WebKit drops colour where canvas
+     alpha is 0 and Chromium does not; anything drawn on a canvas over the
+     page (overlays, particles, blend modes) is checked in both, and the
+     `.webkit.png` is committed beside the Chromium one.
+   - **Cascade questions are answered on the build, never the dev server.**
+     Vite dev injects stylesheets in import order and the build concatenates
+     them in another; a rule can win on one and lose on the other. `shots`
+     serves the build. For specificity work, so should you.
+   - **Mask and head-pose work uses a face.** The fake camera is a still,
+     dark frame. Set `MIRROR_PORTRAIT=<photo>` and the `mirror-face` shots
+     put a real head through the real tracker, straight and tilted; they are
+     written to the temp directory (a photo is not documentation) and the
+     run prints where. Judge fit, size, and tilt direction there, never on
+     the harness silhouettes alone.
 3. Screenshots that go in a PR live in `docs/screenshots/` and are committed
-   WITH the change.
+   WITH the change. Re-running `shots` also rewrites views whose pixels only
+   drift (3D scenes, gradients): compare before committing, and restore the
+   ones that did not really change with `git checkout --`.
 4. **Test harness pages must load `@shared/styles/tokens.css`** and wrap in
    `.app` — a harness without the design system once produced misleading
    white-background screenshots that alarmed the owner.

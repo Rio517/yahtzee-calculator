@@ -27,7 +27,11 @@ const CONTEXT = `Family Arcade — critical session rules (read before any tool 
    disconnected, connect /tidewave in the user's main Chrome profile. Keep
    Playwright for repeatable viewport, DOM, network, and screenshot evidence.
 5. PROVE UI IN A BROWSER: \`npm run shots\` builds, serves, and screenshots into
-   docs/screenshots/. Screenshots in a PR get committed with the change.
+   docs/screenshots/. A shot counts once you have OPENED it and said what it
+   shows. Measure at the size the request names (PHONE, TABLET, LAPTOP,
+   MONITOR); screen-filling layouts get \`fits\`, new views get \`expect\`;
+   canvas overlays are checked in WebKit too (the family's iPad); CSS cascade
+   questions are answered on the build, not the dev server.
 6. OFFLINE INVARIANT: no CDN fonts, fetched models, or remote images. The sole
    exception is the Caribbean map's approved OpenFreeMap vector tiles/glyphs:
    keep its style local, show an explicit network-unavailable state, and never

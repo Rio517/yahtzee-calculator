@@ -12,5 +12,6 @@
     "src/games/mirror/preview.tsx"
   ],
   "project": ["src/**/*.{ts,tsx}"],
-  "ignoreExportsUsedInFile": { "interface": true, "type": true }
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
+  "ignoreBinaries": ["ffmpeg"]
 }

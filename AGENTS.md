@@ -39,6 +39,11 @@ npm run build      # the real typecheck; delete stray *.tsbuildinfo first
 
 UI changes also need a real browser: `npm run shots` builds, serves, and
 screenshots into `docs/screenshots/`. Commit the screenshots with the change.
+A shot counts once you have opened it and said what it shows. Give new views
+an `expect`, give screen-filling layouts `fits` at `LAPTOP` and `MONITOR`,
+check canvas overlays in WebKit too (`engines`), and answer CSS cascade
+questions on the build — the dev server orders stylesheets differently.
+Details in CLAUDE.md, verification step 2.
 
 ## Tidewave-first workflow
 

@@ -25,7 +25,9 @@ score logger, installable as an offline PWA:
 
 **Play it:** https://arcade.knyflores.com/
 
-It's free and open source — the whole thing lives in this repo.
+It's free and open source — the whole thing lives in this repo. Want to add a
+game? `npm run new-game` puts a starter on the wall;
+[CONTRIBUTING.md](CONTRIBUTING.md) has the rest.
 
 ---
 
@@ -190,6 +192,7 @@ npm run check      # typecheck + ESLint + knip dead-code — what CI gates on
 npm run build      # production build → dist/
 npm run preview    # serve the production build locally
 npm run shots      # build, serve, and screenshot every view into docs/screenshots/
+npm run new-game   # scaffold a playable starter game (docs/development/adding-a-game.md)
 npm run glb        # optimise a 3D model for the bundle (see scripts/optimize-glb.mjs)
 ```
 

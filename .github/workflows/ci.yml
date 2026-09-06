@@ -23,3 +23,21 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+
+  # The starter game `npm run new-game` writes must pass every gate as
+  # written — it is a contributor's first hour here. Scaffold one on a fresh
+  # checkout and run the gates over it, so the templates cannot drift from
+  # the shared code they use without this job going red.
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run new-game -- ci-starter "CI Starter"
+      - run: npm run check
+      - run: npx vitest run src/games/ci-starter src/app
+      - run: npm run build

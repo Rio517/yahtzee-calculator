@@ -1,0 +1,176 @@
+/**
+ * __title__ — the screen. A number pad, a hint that says which way to go,
+ * and a result card that records the round on the player's ticket.
+ *
+ * This is the starter game that `npm run new-game` writes. Replace the rules
+ * in ../domain and this screen with your own; keep what the shape shows —
+ * pure rules in domain/, the profile hooks, a data-testid on everything a
+ * finger or a test touches, and a dialog that closes on Escape.
+ */
+import '../styles/__id__.css';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { PlayingAs } from '@shared/profile/PlayingAs';
+import { recordResultFor } from '@shared/profile/results';
+import { useProfile } from '@shared/profile/useProfile';
+import { CloseIcon } from '@shared/ui/icons';
+import { useDismissOnEscape } from '@shared/ui/useDismissOnEscape';
+import { GUESSES, HIGHEST, LOWEST, guess, guessesLeft, newRound, type Round } from '../domain/rules';
+
+/** The registry id — the `game` on a credited history row. */
+const GAME_ID = '__id__';
+
+const HINTS: Record<Round['hint'], string> = {
+  start: 'Pick a number.',
+  higher: 'Higher!',
+  lower: 'Lower!',
+  found: 'Got it!',
+};
+
+const NUMBERS = Array.from({ length: HIGHEST - LOWEST + 1 }, (_, i) => LOWEST + i);
+
+/**
+ * One record per round, on the ticket that sat down. Whether a solo game
+ * should score at all is the game's call: the racer's time trial records
+ * nothing, Ship Battle's computer captains count as opponents.
+ */
+function recordRound(userId: string | null, round: Round) {
+  recordResultFor(userId, {
+    won: round.won,
+    survivingCells: round.won ? guessesLeft(round) : 0,
+    code: GAME_ID,
+    game: GAME_ID,
+    opponent: 'The secret number',
+    finishedAt: Date.now(),
+  });
+}
+
+interface __Name__PageProps {
+  /** Where the secret comes from; a test hands in a seeded one (ADR 0005). */
+  rng?: () => number;
+}
+
+export function __Name__Page({ rng = Math.random }: __Name__PageProps) {
+  // The ticket gate in the router guarantees someone is signed in; `userId`
+  // is whose ticket the result lands on.
+  const { userId } = useProfile();
+  const [round, setRound] = useState<Round>(() => newRound(rng));
+  const [showHelp, setShowHelp] = useState(false);
+  useDismissOnEscape(showHelp, () => setShowHelp(false));
+
+  const play = (n: number) => {
+    const next = guess(round, n);
+    if (next === round) return;
+    setRound(next);
+    if (next.over) recordRound(userId, next);
+  };
+
+  const tries = round.guesses.length;
+
+  return (
+    <div className="app __id__" data-testid="__id__-page">
+      <header className="topbar">
+        <Link className="back-link" to="/">
+          ‹ Menu
+        </Link>
+        <h1>__title__</h1>
+        <span className="spacer" />
+        <button
+          type="button"
+          className="btn btn-ghost"
+          data-testid="__id__-help"
+          onClick={() => setShowHelp(true)}
+        >
+          How to play
+        </button>
+      </header>
+      <PlayingAs />
+
+      <main className="narrow-col">
+        <section className="panel __id__-board">
+          <p
+            className={round.hint === 'found' ? '__id__-hint is-found' : '__id__-hint'}
+            data-testid="__id__-hint"
+            aria-live="polite"
+          >
+            {HINTS[round.hint]}
+          </p>
+          <p className="subtle" data-testid="__id__-left">
+            {guessesLeft(round)} of {GUESSES} guesses left
+          </p>
+          <div className="__id__-pad" role="group" aria-label="Your guess">
+            {NUMBERS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={round.guesses.includes(n) ? '__id__-key is-used' : '__id__-key'}
+                data-testid={`__id__-key-${n}`}
+                disabled={round.over || round.guesses.includes(n)}
+                onClick={() => play(n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {round.over && (
+          <section className="panel center __id__-result" data-testid="__id__-result">
+            <h2>{round.won ? 'You found it!' : 'Out of guesses'}</h2>
+            <p>
+              {round.won
+                ? `${round.secret}, in ${tries} ${tries === 1 ? 'guess' : 'guesses'}.`
+                : `It was ${round.secret}. Next time!`}
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              data-testid="__id__-again"
+              onClick={() => setRound(newRound(rng))}
+            >
+              Play again
+            </button>
+          </section>
+        )}
+      </main>
+
+      {showHelp && (
+        /* Backdrop click is a mouse convenience; Escape and Close are the
+           keyboard path. */
+        /* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
+        <div
+          className="modal-backdrop"
+          data-testid="__id__-help-dialog"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowHelp(false);
+          }}
+        >
+          <div className="modal" role="dialog" aria-modal="true" aria-label="How to play">
+            <div className="modal-head">
+              <span className="modal-title">How to play</span>
+              <button
+                type="button"
+                className="icon-btn"
+                data-testid="__id__-help-close"
+                onClick={() => setShowHelp(false)}
+                aria-label="Close"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+            <div className="__id__-help-body">
+              <p>
+                A secret number is hiding between {LOWEST} and {HIGHEST}. Tap a number to guess.
+              </p>
+              <p>
+                <strong>Higher</strong> means the secret is bigger than your guess;{' '}
+                <strong>Lower</strong> means it is smaller.
+              </p>
+              <p>You have {GUESSES} guesses. Find it and the round is yours.</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

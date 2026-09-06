@@ -1,0 +1,44 @@
+/**
+ * The rules of __title__, and nothing else: no DOM, no storage, no clock.
+ * The screen calls these and shows what comes back; the tests call them and
+ * check. Randomness arrives as a function (ADR 0005), so a test can hand in
+ * a seeded one and get the same round every time.
+ */
+
+export const LOWEST = 1;
+export const HIGHEST = 20;
+export const GUESSES = 6;
+
+/** What the last guess taught: which way to go, or that the round is won. */
+export type Hint = 'start' | 'higher' | 'lower' | 'found';
+
+export interface Round {
+  secret: number;
+  guesses: number[];
+  hint: Hint;
+  over: boolean;
+  won: boolean;
+}
+
+/** A fresh round with a secret drawn from `rng` (0 ≤ rng() < 1). */
+export function newRound(rng: () => number): Round {
+  const secret = LOWEST + Math.floor(rng() * (HIGHEST - LOWEST + 1));
+  return { secret, guesses: [], hint: 'start', over: false, won: false };
+}
+
+/**
+ * One guess. A guess that changes nothing — the round is over, the number is
+ * out of range, it was already tried — returns the same round object, so a
+ * caller can tell at a glance that nothing happened.
+ */
+export function guess(round: Round, n: number): Round {
+  if (round.over || n < LOWEST || n > HIGHEST || round.guesses.includes(n)) return round;
+  const guesses = [...round.guesses, n];
+  const won = n === round.secret;
+  const hint: Hint = won ? 'found' : n < round.secret ? 'higher' : 'lower';
+  return { ...round, guesses, hint, won, over: won || guesses.length >= GUESSES };
+}
+
+export function guessesLeft(round: Round): number {
+  return GUESSES - round.guesses.length;
+}

@@ -1,0 +1,78 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { addUser, emptyUsersState, setActiveUser } from '@shared/profile/users';
+import { getUsersSnapshot, setUsersState } from '@shared/profile/usersStore';
+import { __Name__Page } from './__Name__Page';
+
+/** A secret of 11: 1 + floor(0.5 × 20). */
+const halfway = () => 0.5;
+
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/__id__']}>
+      <__Name__Page rng={halfway} />
+    </MemoryRouter>,
+  );
+}
+
+const rio = () => getUsersSnapshot().users.find((u) => u.id === 'u1')?.profile;
+
+beforeEach(() => {
+  // Rio is signed in — in the app the router's ticket gate guarantees it.
+  setUsersState(setActiveUser(addUser(emptyUsersState(), 'u1', 'Rio'), 'u1'));
+});
+
+describe('__Name__Page', () => {
+  it('opens on a fresh round with every number on the pad', () => {
+    renderPage();
+    expect(screen.getByTestId('__id__-page')).toBeInTheDocument();
+    expect(screen.getByTestId('__id__-hint')).toHaveTextContent('Pick a number');
+    expect(screen.getByTestId('__id__-left')).toHaveTextContent('6 of 6');
+    expect(screen.getByTestId('__id__-key-1')).toBeEnabled();
+    expect(screen.getByTestId('__id__-key-20')).toBeEnabled();
+    expect(screen.queryByTestId('__id__-result')).not.toBeInTheDocument();
+  });
+
+  it('points the way after a guess and retires the key', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('__id__-key-5'));
+    expect(screen.getByTestId('__id__-hint')).toHaveTextContent('Higher');
+    expect(screen.getByTestId('__id__-left')).toHaveTextContent('5 of 6');
+    expect(screen.getByTestId('__id__-key-5')).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('__id__-key-15'));
+    expect(screen.getByTestId('__id__-hint')).toHaveTextContent('Lower');
+  });
+
+  it('records a win on the ticket that sat down, then deals again', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('__id__-key-11'));
+
+    expect(screen.getByTestId('__id__-hint')).toHaveTextContent('Got it');
+    expect(screen.getByTestId('__id__-result')).toHaveTextContent('You found it');
+    expect(rio()?.wins).toBe(1);
+    expect(rio()?.history[0]).toMatchObject({ game: '__id__', result: 'win' });
+
+    fireEvent.click(screen.getByTestId('__id__-again'));
+    expect(screen.queryByTestId('__id__-result')).not.toBeInTheDocument();
+    expect(screen.getByTestId('__id__-key-11')).toBeEnabled();
+  });
+
+  it('records a loss when the guesses run out', () => {
+    renderPage();
+    for (const n of [1, 2, 3, 4, 5, 6]) fireEvent.click(screen.getByTestId(`__id__-key-${n}`));
+    expect(screen.getByTestId('__id__-result')).toHaveTextContent('It was 11');
+    expect(rio()?.losses).toBe(1);
+    // The pad is closed for the round.
+    expect(screen.getByTestId('__id__-key-11')).toBeDisabled();
+  });
+
+  it('opens the help and closes it on Escape', () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId('__id__-help'));
+    expect(screen.getByRole('dialog', { name: 'How to play' })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});

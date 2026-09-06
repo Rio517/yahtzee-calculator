@@ -1,0 +1,25 @@
+import type { GameDescriptor } from '@shared/game';
+import preview from './assets/preview.webp';
+import { __Name__Icon } from '@shared/ui/icons';
+import { __Name__Page } from './components/__Name__Page';
+
+/**
+ * What the arcade knows about __title__: the ticket on the wall, the route,
+ * who can play. The registry lists this and nothing else needs to.
+ */
+export const __camel__: GameDescriptor = {
+  id: '__id__',
+  title: '__title__',
+  players: { min: 1, max: 1 },
+  seats: { min: 1, max: 1 },
+  path: '/__id__',
+  preview: {
+    image: preview,
+    facts: ['1 player', 'Just this iPad', 'About 2 min'],
+    blurb:
+      'A secret number is hiding between 1 and 20. Every guess tells you higher or lower — find it in six.',
+  },
+  description: 'Find the secret number in six guesses. Higher? Lower? Got it!',
+  Icon: __Name__Icon,
+  Page: __Name__Page,
+};

@@ -12,7 +12,9 @@ What's queued right now lives in **[NEXT_STEP.md](./NEXT_STEP.md)**.
 - **Games are modules.** `src/games/<id>/` with `domain/` (pure rules — no DOM,
   network, or storage), `components/`, `state/`, `storage/`, `styles/`.
   `src/app/registry.ts` is the only place that lists games. Shared code lives in
-  `src/shared/` and never imports a game.
+  `src/shared/` and never imports a game. `npm run new-game -- <id> "<Title>"`
+  scaffolds a starter game from `scripts/templates/game/`; the templates use
+  shared APIs, so changing one means updating them (CI scaffolds on every PR).
 - **Offline PWA, with one deliberate exception.** Bundle assets through Vite;
   never fetch fonts, models, or images from a URL. The Caribbean real map loads
   approved vector tiles/glyphs from OpenFreeMap at runtime, uses a repository-
